@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: food-order-api
+  labels:
+    app: food-order-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: food-order-api
+  template:
+    metadata:
+      labels:
+        app: food-order-api
+    spec:
+      containers:
+        - name: food-order-api
+          image: food-order-api:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://otel-collector:4317
+            - name: OTEL_SERVICE_NAME
+              value: food-order-api
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: food-order-api
+spec:
+  selector:
+    app: food-order-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: food-order-api
+spec:
+  to: {kind: Service, name: food-order-api}
+  port: {targetPort: http}
+  tls: {termination: edge, insecureEdgeTerminationPolicy: Redirect}
+
